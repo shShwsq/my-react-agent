@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Frontend specific
+frontend/dist/
+frontend/node_modules/
+
+# Backend specific
+backend/.env
+backend/__pycache__/
+backend/**/*.pyc
+
+# Documentation (if needed to exclude)
+阿里云文档/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Database
+*.db
+*.sqlite3
+
+# Debug files
+.dbg/
+
+# Storage
+storage/
+/storage/
+
+# Migration
+migrations/
