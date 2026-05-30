@@ -102,6 +102,12 @@ MODEL_NAMES = {
                 "qwen3.5-flash-2026-02-15",
                 "qwen3.5-27b",
                 "qwen3.5-35b-a3b",
+                "glm-4.5",
+                "qwen-plus-2025-07-14",
+                "qwen-plus-2025-04-28",
+                "qwen3-30b-a3b",
+                "qwen-plus-2025-01-25",
+                "qwen-flash-2025-07-28",
             ],
             "responses": [
                 "qwen3-max",
@@ -164,6 +170,7 @@ MODEL_NAMES = {
             "openai": [
                 "qwen3-asr-flash",
                 "qwen3-asr-flash-2026-02-10",
+                "qwen3-asr-flash-2025-09-08",
             ],
             "dashscope": [
                 "qwen3-asr-flash",
@@ -194,6 +201,8 @@ MODEL_NAMES = {
                 "qwen2.5-vl-3b-instruct",
                 "qwen3-vl-max",
                 "qwen3-vl-plus",
+                "qwen3-vl-flash-2025-10-15",
+                "qwen3-vl-plus-2025-12-19",
             ],
             "messages": [
                 "qwen3-vl-plus",
@@ -247,6 +256,7 @@ MODEL_NAMES = {
                 "qwen-image-2.0",
                 "qwen-image-2.0-pro",
                 "qwen-image-2.0-2026-03-03",
+                "qwen-image-max-2025-12-30",
             ],
         },
     },
