@@ -763,6 +763,7 @@ async function handleSend(content: string, files?: File[]) {
           console.error('Failed to upload file:', file.name, e)
         }
       }
+      fetchRoomFiles()
     }
   } catch (e) {
     console.error('Failed to save message to database:', e)
