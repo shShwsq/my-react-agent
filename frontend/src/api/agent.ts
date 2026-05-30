@@ -171,31 +171,8 @@ export async function submitEnvVars(roomId: string, values: Record<string, strin
   }
 }
 
-export async function stopLocust(processId: number): Promise<void> {
-  try {
-    const res = await axios.post<ApiResponse<any>>('/api/agents/loop/stop-locust', { process_id: processId })
-    if (res.data.e) {
-      throw new Error(res.data.m)
-    }
-  } catch (e: any) {
-    throw extractError(e)
-  }
-}
-
-export async function stopAllLocust(): Promise<void> {
-  try {
-    const res = await axios.post<ApiResponse<any>>('/api/agents/loop/stop-all-locust')
-    if (res.data.e) {
-      throw new Error(res.data.m)
-    }
-  } catch (e: any) {
-    throw extractError(e)
-  }
-}
-
 export interface DeployConfig {
   frontend_external_url: string
-  locust_proxy_path: string
 }
 
 export async function getDeployConfig(): Promise<DeployConfig> {
@@ -203,6 +180,6 @@ export async function getDeployConfig(): Promise<DeployConfig> {
     const res = await axios.get<DeployConfig>('/api/deploy-config')
     return res.data
   } catch (e: any) {
-    return { frontend_external_url: '', locust_proxy_path: '/locust/' }
+    return { frontend_external_url: '' }
   }
 }

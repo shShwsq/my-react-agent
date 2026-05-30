@@ -16,12 +16,6 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
-      '/locust': {
-        target: 'http://localhost:8089',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/locust/, ''),
-        ws: true,
-      },
     },
   },
 })

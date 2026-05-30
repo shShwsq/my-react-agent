@@ -10,7 +10,6 @@
 - **文件处理**：支持上传和处理多种文件格式（Word、PDF、Excel 等）
 - **房间管理**：支持多会话房间管理
 - **用户认证**：JWT Token 认证机制
-- **性能测试**：集成 Locust 压力测试框架（**注意：Locust 测试功能还未调试好**）
 
 ## 技术栈
 
@@ -19,7 +18,6 @@
 | 后端 | FastAPI + SQLAlchemy + PostgreSQL |
 | 前端 | Vue 3 + TypeScript + Vite |
 | 部署 | Docker Compose + Nginx |
-| 性能测试 | Locust |
 
 ## 目录结构
 
@@ -69,9 +67,6 @@ FRONTEND_EXTERNAL_URL=http://your-server-ip:40000
 
 # 前端端口
 FRONTEND_PORT=40000
-
-# Locust 代理路径
-LOCUST_PROXY_PATH=/locust/
 ```
 
 ```bash
@@ -114,7 +109,6 @@ docker-compose up -d --build
 
 - 前端：`http://your-server-ip:40000`
 - API 文档：`http://your-server-ip:40000/api/docs`
-- Locust Web UI：`http://your-server-ip:40000/locust/`（**功能还未调试好**）
 
 ### 方式二：本地开发部署
 
@@ -182,7 +176,6 @@ npm run dev
 |------|------|--------|
 | `FRONTEND_EXTERNAL_URL` | 前端外部访问地址 | `http://localhost:40000` |
 | `FRONTEND_PORT` | 前端监听端口 | `40000` |
-| `LOCUST_PROXY_PATH` | Locust 代理路径 | `/locust/` |
 
 ### 后端配置（`backend/.env`）
 
@@ -194,21 +187,6 @@ npm run dev
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token 过期时间（分钟） | `1440` |
 | `TTS_DEFAULT_VOICE_COSYVOICE_V35_FLASH` | TTS 快速模型语音 ID | 可选 |
 | `TTS_DEFAULT_VOICE_COSYVOICE_V35_PLUS` | TTS 高质量模型语音 ID | 可选 |
-
-## 性能测试
-
-项目集成了 Locust 性能测试框架。
-
-> ⚠️ **注意：Locust 测试功能还未调试好，可能无法正常使用。**
-
-启动 Locust：
-
-```bash
-cd backend
-locust -f app/tasks/tools/locust_tool.py
-```
-
-或通过 Docker 部署后访问 `/locust/` 路径。
 
 ## 常见问题
 

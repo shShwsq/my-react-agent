@@ -224,33 +224,6 @@ class AgentLoopOrchestrator:
                     if variable_service:
                         params = variable_service.resolve_dict_variables(room_id, params)
                     
-                    # 检查工具是否需要环境变量输入
-                    if tool_name == "locust_tool" and params.get("environment_vars"):
-                        # 找出值为空的环境变量（需要用户输入）
-                        empty_vars = {
-                            k: {"description": v if isinstance(v, str) and v.strip() else f"请输入 {k}"}
-                            for k, v in params["environment_vars"].items()
-                            if not isinstance(v, str) or v.strip() == ""
-                        }
-                        
-                        if empty_vars:
-                            # 发送请求环境变量的事件
-                            yield f"data: {json.dumps({'type': 'request_env_vars', 'tool': tool_name, 'variables': empty_vars}, ensure_ascii=False)}\n\n"
-                            
-                            # 等待前端提交环境变量
-                            user_values = await self._wait_for_env_vars(room_id, empty_vars)
-                            
-                            if user_values:
-                                # 将用户输入的值合并到 environment_vars
-                                params["environment_vars"].update(user_values)
-                                yield f"data: {json.dumps({'type': 'env_vars_received', 'keys': list(user_values.keys())}, ensure_ascii=False)}\n\n"
-                            else:
-                                # 超时或取消，移除空值的环境变量
-                                params["environment_vars"] = {
-                                    k: v for k, v in params["environment_vars"].items()
-                                    if isinstance(v, str) and v.strip()
-                                }
-                    
                     task_input = {"tool": tool_name, "params": params}
                     task_result = await self.task.execute_task("tool_call", task_input, state["context"])
                 elif task_type == "file_operation":
@@ -683,27 +656,4 @@ def submit_env_vars(
         return success(message="没有等待环境变量的请求")
 
 
-class StopLocustRequest(BaseModel):
-    process_id: int
 
-
-@router.post("/stop-locust")
-async def stop_locust(
-    request: StopLocustRequest,
-    current_user: User = Depends(get_current_user),
-):
-    from app.tasks.tools.locust_tool import locust_tool
-    ok = await locust_tool.stop_process(request.process_id)
-    if ok:
-        return success(message="Locust 进程已停止")
-    else:
-        return success(message="未找到指定的 Locust 进程")
-
-
-@router.post("/stop-all-locust")
-async def stop_all_locust(
-    current_user: User = Depends(get_current_user),
-):
-    from app.tasks.tools.locust_tool import locust_tool
-    await locust_tool.stop_all_processes()
-    return success(message="所有 Locust 进程已停止")

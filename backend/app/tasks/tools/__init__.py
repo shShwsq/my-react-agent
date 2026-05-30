@@ -54,6 +54,3 @@ class ToolRegistry:
 
 
 tool_registry = ToolRegistry()
-
-# 导入工具模块触发注册
-from app.tasks.tools.locust_tool import locust_tool  # noqa: E402, F401

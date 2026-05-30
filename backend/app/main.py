@@ -50,5 +50,4 @@ def deploy_config():
     """返回部署配置，供前端获取外部访问地址等信息"""
     return {
         "frontend_external_url": os.environ.get("FRONTEND_EXTERNAL_URL", ""),
-        "locust_proxy_path": os.environ.get("LOCUST_PROXY_PATH", "/locust/"),
     }

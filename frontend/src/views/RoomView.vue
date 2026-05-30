@@ -388,16 +388,6 @@
       @close="showEnvVarDialog = false"
       @confirm="handleEnvVarConfirm"
     />
-    
-    <!-- Locust 压测结果面板 -->
-    <LocustResultPanel
-      :visible="showLocustPanel"
-      :result="locustResult"
-      :locust-web-proxy-path="locustWebProxyPath"
-      :frontend-external-url="frontendExternalUrl"
-      @close="showLocustPanel = false"
-      @stop-locust="handleStopLocust"
-    />
   </div>
 </template>
 
@@ -406,12 +396,11 @@ import { ref, nextTick, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useModelConfigStore } from '@/stores/modelConfig'
-import { runAgentLoop, AgentLoopEvent, getUserPreferences, pauseAgentLoop, submitEnvVars, stopLocust, getDeployConfig } from '@/api/agent'
+import { runAgentLoop, AgentLoopEvent, getUserPreferences, pauseAgentLoop, submitEnvVars, getDeployConfig } from '@/api/agent'
 import ChatInput from '@/components/ChatInput.vue'
 import ModelConfig from '@/components/ModelConfig.vue'
 import VoiceInput from '@/components/VoiceInput.vue'
 import EnvVarDialog from '@/components/EnvVarDialog.vue'
-import LocustResultPanel from '@/components/LocustResultPanel.vue'
 import { getRoomCache, addMessageToRoom, saveRoomCache, RoomMessage, MessageRole } from '@/utils/roomCache'
 import { addMessage, getRoomVariables, getRoom, getRoomFiles, uploadFile } from '@/api/room'
 
@@ -481,44 +470,6 @@ const selectedVariable = ref<{ name: string; value: any } | null>(null)
 const showEnvVarDialog = ref(false)
 const envVarVariables = ref<Record<string, { description?: string; placeholder?: string; required?: boolean }>>({})
 const envVarCallback = ref<((values: Record<string, string>) => void) | null>(null)
-
-// Locust 压测结果面板
-const showLocustPanel = ref(false)
-const locustWebProxyPath = ref('/locust/')  // 默认值，启动时从后端获取
-const frontendExternalUrl = ref('')
-const locustResult = ref<{
-  summary?: string
-  web_ui_url?: string
-  web_ui_port?: number
-  process_id?: number
-  parsed?: {
-    total_requests: number
-    total_failures: number
-    requests_per_second: number
-    avg_response_time: number
-    min_response_time: number
-    max_response_time: number
-    p50_response_time: number
-    p95_response_time: number
-    p99_response_time: number
-    llm_metrics?: {
-      avg_ttft_ms: number
-      avg_tokens_per_sec: number
-      total_output_tokens: number
-      ttft_samples: number
-      tps_samples: number
-    }
-  }
-  config: {
-    host: string
-    users: number
-    spawn_rate: number
-    run_time: string
-    request_count: number
-    has_llm_requests?: boolean
-    headless?: boolean
-  }
-} | undefined>(undefined)
 
 const selectedAgentId = ref('auto')
 
@@ -717,18 +668,6 @@ function handleEnvVarConfirm(values: Record<string, string>) {
   if (envVarCallback.value) {
     envVarCallback.value(values)
     envVarCallback.value = null
-  }
-}
-
-async function handleStopLocust(processId: number) {
-  try {
-    await stopLocust(processId)
-    if (locustResult.value) {
-      locustResult.value.web_ui_url = undefined
-      locustResult.value.process_id = undefined
-    }
-  } catch (err) {
-    console.error('停止 Locust 进程失败:', err)
   }
 }
 
@@ -1022,47 +961,6 @@ function handleAgentEvent(event: AgentLoopEvent, currentContent: string) {
           content: taskOutput,
           timestamp: Date.now()
         })
-        
-        // 检查是否是 Locust 压测结果
-        if (parsedData?.d?.tool === 'locust_tool' && parsedData?.d?.output) {
-          const locustData = parsedData.d.output
-          const llmMetrics = locustData.parsed?.llm_metrics
-          const isWebUI = !!locustData.web_ui_url
-          locustResult.value = {
-            summary: locustData.summary || '',
-            web_ui_url: locustData.web_ui_url,
-            web_ui_port: locustData.web_ui_port,
-            process_id: locustData.process_id,
-            parsed: isWebUI ? undefined : {
-              total_requests: locustData.parsed?.total_requests || 0,
-              total_failures: locustData.parsed?.total_failures || 0,
-              requests_per_second: locustData.parsed?.requests_per_second || 0,
-              avg_response_time: locustData.parsed?.avg_response_time || 0,
-              min_response_time: locustData.parsed?.min_response_time || 0,
-              max_response_time: locustData.parsed?.max_response_time || 0,
-              p50_response_time: locustData.parsed?.p50_response_time || 0,
-              p95_response_time: locustData.parsed?.p95_response_time || 0,
-              p99_response_time: locustData.parsed?.p99_response_time || 0,
-              ...(llmMetrics ? { llm_metrics: {
-                avg_ttft_ms: llmMetrics.avg_ttft_ms || 0,
-                avg_tokens_per_sec: llmMetrics.avg_tokens_per_sec || 0,
-                total_output_tokens: llmMetrics.total_output_tokens || 0,
-                ttft_samples: llmMetrics.ttft_samples || 0,
-                tps_samples: llmMetrics.tps_samples || 0,
-              } } : {}),
-            },
-            config: {
-              host: locustData.config?.host || '',
-              users: locustData.config?.users || 0,
-              spawn_rate: locustData.config?.spawn_rate || 0,
-              run_time: locustData.config?.run_time || '',
-              request_count: locustData.config?.request_count || 0,
-              has_llm_requests: locustData.config?.has_llm_requests || false,
-              headless: locustData.config?.headless ?? true,
-            }
-          }
-          showLocustPanel.value = true
-        }
       }
       agentStreamContent.value = ''
       break
@@ -1198,12 +1096,6 @@ onMounted(async () => {
   // 获取部署配置（外部访问地址等）
   try {
     const deployCfg = await getDeployConfig()
-    if (deployCfg.locust_proxy_path) {
-      locustWebProxyPath.value = deployCfg.locust_proxy_path
-    }
-    if (deployCfg.frontend_external_url) {
-      frontendExternalUrl.value = deployCfg.frontend_external_url
-    }
   } catch { /* ignore */ }
   
   // 加载启用的工具列表

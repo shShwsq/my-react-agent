@@ -6,12 +6,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # 部署相关配置（覆盖 backend/.env 中的值）
       FRONTEND_EXTERNAL_URL: ${FRONTEND_EXTERNAL_URL:-http://localhost:40000}
-      LOCUST_PROXY_PATH: ${LOCUST_PROXY_PATH:-/locust/}
     expose:
       - "8000"
-      - "8089"
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
