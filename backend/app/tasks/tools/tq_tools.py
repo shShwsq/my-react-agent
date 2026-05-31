@@ -1,7 +1,9 @@
 import os
 import time
 import math
+import uuid
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional
 from app.tasks.tools import BaseTool, ToolResult, tool_registry
 from app.config import settings
@@ -10,6 +12,7 @@ from app.services.room_session import RoomSessionManager
 logger = logging.getLogger(__name__)
 
 TQ_RESOURCE_KEY = "tq_api"
+FILES_DIR = Path("storage/agent_files")
 
 session_manager = RoomSessionManager.get_instance()
 
@@ -262,6 +265,101 @@ def _do_get_quote(resources: dict, symbols):
         return ToolResult(success=False, output=None, error=f"获取实时行情失败: {str(e)}")
 
 
+def _do_get_klines(resources: dict, symbols, duration_seconds, length, room_id, user_id):
+    try:
+        import pandas as pd
+    except ImportError:
+        return ToolResult(success=False, output=None, error="pandas 未安装，请运行 pip install pandas")
+
+    try:
+        duration_seconds = int(duration_seconds)
+        length = int(length)
+    except (ValueError, TypeError):
+        return ToolResult(success=False, output=None, error="duration_seconds 和 length 必须是整数")
+
+    if not (1 <= duration_seconds <= 86400):
+        return ToolResult(success=False, output=None, error="K线周期必须在 1~86400 秒之间")
+
+    symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
+    if not symbol_list:
+        return ToolResult(success=False, output=None, error="合约代码不能为空")
+
+    try:
+        api = _ensure_tq_api(resources)
+
+        kline_refs = {}
+        for sym in symbol_list:
+            try:
+                kline_refs[sym] = api.get_kline_serial(sym, duration_seconds, data_length=length)
+            except Exception as e:
+                logger.warning(f"[GetKlinesTool] 订阅合约 {sym} 失败: {e}")
+
+        if not kline_refs:
+            return ToolResult(success=False, output=None, error="所有合约订阅均失败，请检查合约代码是否有效")
+
+        deadline = time.time() + 10
+        api.wait_update(deadline=deadline)
+
+        result = {}
+        for sym, df in kline_refs.items():
+            try:
+                if df.empty:
+                    logger.warning(f"[GetKlinesTool] {sym} K线数据为空")
+                    continue
+                df_out = df.copy()
+                df_out['datetime'] = pd.to_datetime(df_out['datetime'], unit='ns')
+                df_out = df_out.reset_index(drop=True)
+                result[sym] = df_out
+            except Exception as e:
+                logger.warning(f"[GetKlinesTool] 解析合约 {sym} K线失败: {e}")
+
+        if not result:
+            return ToolResult(success=False, output=None, error="未获取到任何K线数据")
+
+        outputs_dir = FILES_DIR / str(user_id) / room_id / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+
+        file_id = str(uuid.uuid4())[:8]
+        saved_files = []
+        for sym, df_out in result.items():
+            safe_name = sym.replace('.', '_')
+            filename = f"klines_{safe_name}_{file_id}.csv"
+            file_path = outputs_dir / filename
+            df_out.to_csv(str(file_path), index=False)
+            file_size = file_path.stat().st_size
+            saved_files.append({
+                "symbol": sym,
+                "filename": filename,
+                "file_size": file_size,
+                "relative_path": file_path.relative_to(FILES_DIR).as_posix(),
+                "folder": "outputs",
+                "rows": len(df_out),
+            })
+
+        return ToolResult(
+            success=True,
+            output={
+                "symbols": list(result.keys()),
+                "count": len(result),
+                "duration_seconds": duration_seconds,
+                "length": length,
+                "files": saved_files,
+                "file_created": saved_files[0] if len(saved_files) == 1 else None,
+            }
+        )
+    except ValueError as e:
+        return ToolResult(success=False, output=None, error=str(e))
+    except Exception as e:
+        logger.error(f"[GetKlinesTool] Error: {e}")
+        if TQ_RESOURCE_KEY in resources:
+            try:
+                resources[TQ_RESOURCE_KEY].close()
+            except Exception:
+                pass
+            del resources[TQ_RESOURCE_KEY]
+        return ToolResult(success=False, output=None, error=f"获取K线数据失败: {str(e)}")
+
+
 class QueryQuotesTool(BaseTool):
     name = "query_quotes"
     description = "根据条件查询期货/期权合约代码。支持按合约类型、交易所、品种、是否下市、是否有夜盘等条件筛选"
@@ -422,3 +520,53 @@ class QueryOptionsTool(BaseTool):
 
 
 tool_registry.register(QueryOptionsTool())
+
+
+class GetKlinesTool(BaseTool):
+    name = "get_klines"
+    description = "获取期货/期权合约的K线历史数据并保存为CSV文件。支持多合约同时查询，每个合约生成独立的CSV文件"
+
+    async def execute(self, **kwargs) -> ToolResult:
+        room_id = kwargs.get("room_id", "default")
+        user_id = kwargs.get("user_id", 0)
+        symbols = kwargs.get("symbols", "")
+        duration_seconds = kwargs.get("duration_seconds", 60)
+        length = kwargs.get("length", 100)
+
+        if not symbols or not symbols.strip():
+            return ToolResult(success=False, output=None, error="请提供至少一个合约代码")
+
+        session = session_manager.get_session(room_id)
+        try:
+            return await session.submit_async(
+                lambda res: _do_get_klines(res, symbols, duration_seconds, length, room_id, user_id),
+                timeout=30.0,
+            )
+        except Exception as e:
+            logger.error(f"[GetKlinesTool] Session error: {e}")
+            return ToolResult(success=False, output=None, error=f"获取K线数据失败: {str(e)}")
+
+    def get_parameters(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "symbols": {
+                    "type": "string",
+                    "description": "合约代码，多个合约用英文逗号分隔。如 'SHFE.rb2501,DCE.m2505'"
+                },
+                "duration_seconds": {
+                    "type": "integer",
+                    "description": "K线周期（秒），常见值：60（1分钟）、300（5分钟）、900（15分钟）、1800（30分钟）、3600（1小时）、86400（日线）。默认60",
+                    "default": 60
+                },
+                "length": {
+                    "type": "integer",
+                    "description": "获取的K线根数，默认100",
+                    "default": 100
+                }
+            },
+            "required": ["symbols"]
+        }
+
+
+tool_registry.register(GetKlinesTool())

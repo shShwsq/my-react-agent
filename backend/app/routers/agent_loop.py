@@ -228,9 +228,15 @@ class AgentLoopOrchestrator:
                     task_result = await self.task.execute_task("tool_call", task_input, state["context"])
 
                     if not task_result.get("e"):
-                        file_created = task_result.get("d", {}).get("output", {}).get("file_created")
+                        output = task_result.get("d", {}).get("output", {})
+                        file_created = output.get("file_created")
                         if file_created:
                             yield f"data: {json.dumps({'type': 'file_created', 'data': file_created}, ensure_ascii=False)}\n\n"
+                        files_list = output.get("files")
+                        if files_list:
+                            for f in files_list:
+                                if f != file_created:
+                                    yield f"data: {json.dumps({'type': 'file_created', 'data': f}, ensure_ascii=False)}\n\n"
                 elif task_type == "file_operation":
                     operation = current_task.get("operation")
                     params = current_task.get("params", {})
