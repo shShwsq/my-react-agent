@@ -60,6 +60,7 @@ backend/**/*.pyc
 
 # Documentation (if needed to exclude)
 阿里云文档/
+backend/references/
 
 # Temporary files
 *.tmp

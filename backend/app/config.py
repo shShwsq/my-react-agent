@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     TTS_DEFAULT_VOICE_COSYVOICE_V35_FLASH: str = ""
     TTS_DEFAULT_VOICE_COSYVOICE_V35_PLUS: str = ""
+    TQ_ACCOUNT_NAME: str = ""
+    TQ_PASSWORD: str = ""
 
     class Config:
         env_file = ".env"

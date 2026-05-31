@@ -54,3 +54,5 @@ class ToolRegistry:
 
 
 tool_registry = ToolRegistry()
+
+import app.tasks.tools.tq_tools
