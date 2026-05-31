@@ -99,6 +99,7 @@ MODEL_NAMES = {
                 "qwen3.6-flash",
                 "qwen3.6-plus-2026-04-02",
                 "qwen3.5-plus-2026-02-15",
+                "qwen3.5-plus-2026-04-20",
                 "qwen3.5-flash-2026-02-15",
                 "qwen3.5-27b",
                 "qwen3.5-35b-a3b",
