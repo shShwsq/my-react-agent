@@ -409,14 +409,15 @@ def _bs_calc_greeks(S, K, r, v, t, option_class):
 
     delta = o * norm.cdf(o * d1)
     gamma = norm.pdf(d1) / (S * v * sqrt_t)
-    theta = (-v * S * norm.pdf(d1) / (2 * sqrt_t) - o * r * K * math.exp(-r * t) * norm.cdf(o * d2))
-    vega = S * sqrt_t * norm.pdf(d1)
-    rho = o * K * t * math.exp(-r * t) * norm.cdf(o * d2)
+    theta_annual = (-v * S * norm.pdf(d1) / (2 * sqrt_t) - o * r * K * math.exp(-r * t) * norm.cdf(o * d2))
+    theta_daily = theta_annual / 365.0
+    vega = S * sqrt_t * norm.pdf(d1) / 100.0
+    rho = o * K * t * math.exp(-r * t) * norm.cdf(o * d2) / 100.0
 
     return {
         "delta": delta,
         "gamma": gamma,
-        "theta": theta,
+        "theta": theta_daily,
         "vega": vega,
         "rho": rho,
     }
