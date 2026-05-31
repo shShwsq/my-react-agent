@@ -157,6 +157,49 @@ def _do_query_quotes(resources: dict, ins_class, exchange_id, product_id, expire
         return ToolResult(success=False, output=None, error=f"查询合约代码失败: {str(e)}")
 
 
+def _do_query_options(resources: dict, underlying_symbol, option_class, exercise_year, exercise_month, strike_price, expired, has_A, has_MS):
+    try:
+        api = _ensure_tq_api(resources)
+
+        query_kwargs = {"underlying_symbol": underlying_symbol}
+        if option_class is not None:
+            query_kwargs["option_class"] = option_class
+        if exercise_year is not None:
+            query_kwargs["exercise_year"] = exercise_year
+        if exercise_month is not None:
+            query_kwargs["exercise_month"] = exercise_month
+        if strike_price is not None:
+            query_kwargs["strike_price"] = strike_price
+        if expired is not None:
+            query_kwargs["expired"] = expired
+        if has_A is not None:
+            query_kwargs["has_A"] = has_A
+        if has_MS is not None:
+            query_kwargs["has_MS"] = has_MS
+
+        result = api.query_options(**query_kwargs)
+
+        return ToolResult(
+            success=True,
+            output={
+                "symbols": list(result),
+                "count": len(result),
+                "query_params": query_kwargs,
+            }
+        )
+    except ValueError as e:
+        return ToolResult(success=False, output=None, error=str(e))
+    except Exception as e:
+        logger.error(f"[QueryOptionsTool] Error: {e}")
+        if TQ_RESOURCE_KEY in resources:
+            try:
+                resources[TQ_RESOURCE_KEY].close()
+            except Exception:
+                pass
+            del resources[TQ_RESOURCE_KEY]
+        return ToolResult(success=False, output=None, error=f"查询期权合约失败: {str(e)}")
+
+
 def _do_get_quote(resources: dict, symbols):
     try:
         api = _ensure_tq_api(resources)
@@ -306,3 +349,76 @@ class GetQuoteTool(BaseTool):
 
 tool_registry.register(QueryQuotesTool())
 tool_registry.register(GetQuoteTool())
+
+
+class QueryOptionsTool(BaseTool):
+    name = "query_options"
+    description = "根据标的合约查询期权合约代码。支持按期权类型（看涨/看跌）、行权年份、行权月份、行权价格等条件筛选"
+
+    async def execute(self, **kwargs) -> ToolResult:
+        room_id = kwargs.get("room_id", "default")
+        underlying_symbol = kwargs.get("underlying_symbol", "")
+        option_class = kwargs.get("option_class")
+        exercise_year = kwargs.get("exercise_year")
+        exercise_month = kwargs.get("exercise_month")
+        strike_price = kwargs.get("strike_price")
+        expired = kwargs.get("expired")
+        has_A = kwargs.get("has_A")
+        has_MS = kwargs.get("has_MS")
+
+        if not underlying_symbol or not underlying_symbol.strip():
+            return ToolResult(success=False, output=None, error="请提供标的合约代码（underlying_symbol）")
+
+        session = session_manager.get_session(room_id)
+        try:
+            return await session.submit_async(
+                lambda res: _do_query_options(res, underlying_symbol, option_class, exercise_year, exercise_month, strike_price, expired, has_A, has_MS),
+                timeout=30.0,
+            )
+        except Exception as e:
+            logger.error(f"[QueryOptionsTool] Session error: {e}")
+            return ToolResult(success=False, output=None, error=f"查询期权合约失败: {str(e)}")
+
+    def get_parameters(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "underlying_symbol": {
+                    "type": "string",
+                    "description": "标的合约代码，如 'SHFE.cu2501'、'CZCE.SR501'"
+                },
+                "option_class": {
+                    "type": "string",
+                    "enum": ["CALL", "PUT"],
+                    "description": "期权类型：CALL（看涨期权）、PUT（看跌期权）"
+                },
+                "exercise_year": {
+                    "type": "integer",
+                    "description": "最后行权日年份，如 2025"
+                },
+                "exercise_month": {
+                    "type": "integer",
+                    "description": "最后行权日月份，如 1-12"
+                },
+                "strike_price": {
+                    "type": "number",
+                    "description": "行权价格"
+                },
+                "expired": {
+                    "type": "boolean",
+                    "description": "是否已下市，默认为 false（仅查询未下市合约）"
+                },
+                "has_A": {
+                    "type": "boolean",
+                    "description": "是否含有A，True代表只含A的期权，False代表不含A的期权，默认不做区分"
+                },
+                "has_MS": {
+                    "type": "boolean",
+                    "description": "是否含有MS系列，True代表只含MS系列期权，False代表排除MS系列期权，默认不做区分"
+                }
+            },
+            "required": ["underlying_symbol"]
+        }
+
+
+tool_registry.register(QueryOptionsTool())

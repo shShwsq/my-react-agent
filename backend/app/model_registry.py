@@ -108,6 +108,7 @@ MODEL_NAMES = {
                 "qwen3-30b-a3b",
                 "qwen-plus-2025-01-25",
                 "qwen-flash-2025-07-28",
+                "qwen3.6-35b-a3b",
             ],
             "responses": [
                 "qwen3-max",
@@ -162,6 +163,7 @@ MODEL_NAMES = {
                 "qwen3.5-flash-2026-02-15",
                 "qwen3.5-27b",
                 "qwen3.5-35b-a3b",
+                "qwen3.6-35b-a3b",
             ],
         },
     },
