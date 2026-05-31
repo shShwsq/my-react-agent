@@ -1,13 +1,17 @@
 import os
 import time
 import math
-import asyncio
 import logging
 from typing import Any, Dict, Optional
 from app.tasks.tools import BaseTool, ToolResult, tool_registry
 from app.config import settings
+from app.services.room_session import RoomSessionManager
 
 logger = logging.getLogger(__name__)
+
+TQ_RESOURCE_KEY = "tq_api"
+
+session_manager = RoomSessionManager.get_instance()
 
 
 def _get_tq_auth():
@@ -19,11 +23,14 @@ def _get_tq_auth():
     return TqAuth(account, password)
 
 
-def _sanitize_value(value: Any) -> Any:
-    if isinstance(value, float):
-        if math.isnan(value) or math.isinf(value):
-            return None
-    return value
+def _ensure_tq_api(resources: dict):
+    if TQ_RESOURCE_KEY not in resources:
+        from tqsdk import TqApi
+        auth = _get_tq_auth()
+        api = TqApi(auth=auth)
+        resources[TQ_RESOURCE_KEY] = api
+        logger.info("[TqTools] TqApi instance created for room session")
+    return resources[TQ_RESOURCE_KEY]
 
 
 def _quote_to_dict(quote: Any) -> Dict[str, Any]:
@@ -111,12 +118,9 @@ def _quote_to_dict(quote: Any) -> Dict[str, Any]:
     }
 
 
-def _run_query_quotes(ins_class, exchange_id, product_id, expired, has_night):
-    from tqsdk import TqApi
-    api = None
+def _do_query_quotes(resources: dict, ins_class, exchange_id, product_id, expired, has_night):
     try:
-        auth = _get_tq_auth()
-        api = TqApi(auth=auth)
+        api = _ensure_tq_api(resources)
 
         query_kwargs = {}
         if ins_class is not None:
@@ -144,18 +148,18 @@ def _run_query_quotes(ins_class, exchange_id, product_id, expired, has_night):
         return ToolResult(success=False, output=None, error=str(e))
     except Exception as e:
         logger.error(f"[QueryQuotesTool] Error: {e}")
+        if TQ_RESOURCE_KEY in resources:
+            try:
+                resources[TQ_RESOURCE_KEY].close()
+            except Exception:
+                pass
+            del resources[TQ_RESOURCE_KEY]
         return ToolResult(success=False, output=None, error=f"查询合约代码失败: {str(e)}")
-    finally:
-        if api:
-            api.close()
 
 
-def _run_get_quote(symbols):
-    from tqsdk import TqApi
-    api = None
+def _do_get_quote(resources: dict, symbols):
     try:
-        auth = _get_tq_auth()
-        api = TqApi(auth=auth)
+        api = _ensure_tq_api(resources)
 
         symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
 
@@ -206,10 +210,13 @@ def _run_get_quote(symbols):
         return ToolResult(success=False, output=None, error=str(e))
     except Exception as e:
         logger.error(f"[GetQuoteTool] Error: {e}")
+        if TQ_RESOURCE_KEY in resources:
+            try:
+                resources[TQ_RESOURCE_KEY].close()
+            except Exception:
+                pass
+            del resources[TQ_RESOURCE_KEY]
         return ToolResult(success=False, output=None, error=f"获取实时行情失败: {str(e)}")
-    finally:
-        if api:
-            api.close()
 
 
 class QueryQuotesTool(BaseTool):
@@ -217,15 +224,22 @@ class QueryQuotesTool(BaseTool):
     description = "根据条件查询期货/期权合约代码。支持按合约类型、交易所、品种、是否下市、是否有夜盘等条件筛选"
 
     async def execute(self, **kwargs) -> ToolResult:
+        room_id = kwargs.get("room_id", "default")
         ins_class = kwargs.get("ins_class")
         exchange_id = kwargs.get("exchange_id")
         product_id = kwargs.get("product_id")
         expired = kwargs.get("expired", False)
         has_night = kwargs.get("has_night")
 
-        return await asyncio.to_thread(
-            _run_query_quotes, ins_class, exchange_id, product_id, expired, has_night
-        )
+        session = session_manager.get_session(room_id)
+        try:
+            return await session.submit_async(
+                lambda res: _do_query_quotes(res, ins_class, exchange_id, product_id, expired, has_night),
+                timeout=30.0,
+            )
+        except Exception as e:
+            logger.error(f"[QueryQuotesTool] Session error: {e}")
+            return ToolResult(success=False, output=None, error=f"查询合约代码失败: {str(e)}")
 
     def get_parameters(self) -> dict:
         return {
@@ -261,12 +275,21 @@ class GetQuoteTool(BaseTool):
     description = "获取期货/期权合约的实时行情数据，包括最新价、买卖盘口、成交量、持仓量等。支持同时查询多个合约"
 
     async def execute(self, **kwargs) -> ToolResult:
+        room_id = kwargs.get("room_id", "default")
         symbols = kwargs.get("symbols", "")
 
         if not symbols or not symbols.strip():
             return ToolResult(success=False, output=None, error="请提供至少一个合约代码")
 
-        return await asyncio.to_thread(_run_get_quote, symbols)
+        session = session_manager.get_session(room_id)
+        try:
+            return await session.submit_async(
+                lambda res: _do_get_quote(res, symbols),
+                timeout=30.0,
+            )
+        except Exception as e:
+            logger.error(f"[GetQuoteTool] Session error: {e}")
+            return ToolResult(success=False, output=None, error=f"获取实时行情失败: {str(e)}")
 
     def get_parameters(self) -> dict:
         return {

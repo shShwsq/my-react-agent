@@ -113,7 +113,8 @@ class TaskAgent(BaseAgent):
             )
         
         try:
-            result = await tool.execute(**params)
+            merged_params = {**params, **context}
+            result = await tool.execute(**merged_params)
             if result.success:
                 return task_success(
                     data={"output": result.output, "metadata": result.metadata, "tool": tool_name},
