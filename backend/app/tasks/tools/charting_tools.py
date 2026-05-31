@@ -22,9 +22,9 @@ def _save_chart(fig, room_id: str, user_id: int) -> dict:
 
     return {
         "filename": filename,
-        "file_path": str(file_path),
-        "relative_path": file_path.relative_to(FILES_DIR).as_posix(),
         "file_size": file_size,
+        "relative_path": file_path.relative_to(FILES_DIR).as_posix(),
+        "folder": "outputs",
     }
 
 
@@ -62,8 +62,12 @@ def _run_line_chart(
     ax.grid(True, alpha=0.3)
 
     try:
-        info = _save_chart(fig, room_id, user_id)
-        return ToolResult(success=True, output={**info, "chart_type": "line_chart", "title": title})
+        file_info = _save_chart(fig, room_id, user_id)
+        return ToolResult(success=True, output={
+            "chart_type": "line_chart",
+            "title": title,
+            "file_created": file_info,
+        })
     except Exception as e:
         return ToolResult(success=False, output=None, error=f"保存图表失败: {str(e)}")
     finally:
@@ -121,8 +125,12 @@ def _run_bar_chart(
     ax.grid(True, alpha=0.3, axis="x" if orientation == "horizontal" else "y")
 
     try:
-        info = _save_chart(fig, room_id, user_id)
-        return ToolResult(success=True, output={**info, "chart_type": "bar_chart", "title": title})
+        file_info = _save_chart(fig, room_id, user_id)
+        return ToolResult(success=True, output={
+            "chart_type": "bar_chart",
+            "title": title,
+            "file_created": file_info,
+        })
     except Exception as e:
         return ToolResult(success=False, output=None, error=f"保存图表失败: {str(e)}")
     finally:
@@ -146,8 +154,12 @@ def _run_pie_chart(
     ax.set_title(title)
 
     try:
-        info = _save_chart(fig, room_id, user_id)
-        return ToolResult(success=True, output={**info, "chart_type": "pie_chart", "title": title})
+        file_info = _save_chart(fig, room_id, user_id)
+        return ToolResult(success=True, output={
+            "chart_type": "pie_chart",
+            "title": title,
+            "file_created": file_info,
+        })
     except Exception as e:
         return ToolResult(success=False, output=None, error=f"保存图表失败: {str(e)}")
     finally:
@@ -183,8 +195,12 @@ def _run_scatter_chart(
     ax.grid(True, alpha=0.3)
 
     try:
-        info = _save_chart(fig, room_id, user_id)
-        return ToolResult(success=True, output={**info, "chart_type": "scatter_chart", "title": title})
+        file_info = _save_chart(fig, room_id, user_id)
+        return ToolResult(success=True, output={
+            "chart_type": "scatter_chart",
+            "title": title,
+            "file_created": file_info,
+        })
     except Exception as e:
         return ToolResult(success=False, output=None, error=f"保存图表失败: {str(e)}")
     finally:
