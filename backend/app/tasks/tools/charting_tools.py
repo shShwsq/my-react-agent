@@ -8,6 +8,29 @@ logger = logging.getLogger(__name__)
 
 FILES_DIR = Path("storage/agent_files")
 
+_cjk_font_configured = False
+
+
+def _configure_cjk_font():
+    global _cjk_font_configured
+    if _cjk_font_configured:
+        return
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
+
+    candidates = ["SimHei", "Microsoft YaHei", "STSong", "WenQuanYi Micro Hei", "Noto Sans CJK SC"]
+    available = {f.name for f in fm.fontManager.ttflist}
+    for font_name in candidates:
+        if font_name in available:
+            plt.rcParams["font.sans-serif"] = [font_name] + plt.rcParams["font.sans-serif"]
+            plt.rcParams["axes.unicode_minus"] = False
+            _cjk_font_configured = True
+            logger.info(f"[ChartingTools] CJK font configured: {font_name}")
+            return
+    logger.warning("[ChartingTools] No CJK font found, Chinese text may not render correctly")
+
 
 def _save_chart(fig, room_id: str, user_id: int) -> dict:
     outputs_dir = FILES_DIR / str(user_id) / room_id / "outputs"
@@ -37,6 +60,7 @@ def _run_line_chart(
     room_id: str,
     user_id: int,
 ):
+    _configure_cjk_font()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -84,6 +108,7 @@ def _run_bar_chart(
     room_id: str,
     user_id: int,
 ):
+    _configure_cjk_font()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -144,6 +169,7 @@ def _run_pie_chart(
     room_id: str,
     user_id: int,
 ):
+    _configure_cjk_font()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -176,6 +202,7 @@ def _run_scatter_chart(
     room_id: str,
     user_id: int,
 ):
+    _configure_cjk_font()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
